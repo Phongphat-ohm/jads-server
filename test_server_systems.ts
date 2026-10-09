@@ -10,13 +10,21 @@ async function runTests() {
   const BASE_URL = 'http://localhost:3333';
 
   try {
-    // Test 1: Swagger UI
-    console.log('1️⃣ Checking Swagger Docs endpoint (/api/docs)...');
-    const swaggerRes = await fetch(`${BASE_URL}/api/docs/`);
-    if (swaggerRes.status === 200) {
-      console.log('   ✅ Swagger Docs accessible (Status 200 OK)');
+    // Test 1: Health check & Swagger/Root removal confirmation
+    console.log('1️⃣ Checking Health endpoint and confirming removal of Swagger & Root Tester...');
+    const healthRes = await fetch(`${BASE_URL}/api/health`);
+    if (healthRes.status === 200) {
+      console.log('   ✅ Health endpoint accessible (Status 200 OK)');
     } else {
-      throw new Error(`Swagger failed with status: ${swaggerRes.status}`);
+      throw new Error(`Health check failed with status: ${healthRes.status}`);
+    }
+
+    const swaggerRes = await fetch(`${BASE_URL}/api/docs/`);
+    const rootRes = await fetch(`${BASE_URL}/`);
+    if (swaggerRes.status !== 200 && rootRes.status === 404) {
+      console.log('   ✅ Confirmed: Swagger and root tester UI successfully removed (Swagger disabled, Root returned 404 Not Found)');
+    } else {
+      throw new Error(`Swagger or Root is still active! swagger: ${swaggerRes.status}, root: ${rootRes.status}`);
     }
 
     // Test 2: Security - Role Injection Rejection
