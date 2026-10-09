@@ -221,7 +221,7 @@ export class TemplateService {
   }
 
   /**
-   * Converts a filled DOCX buffer to a PDF buffer using Microsoft Word COM automation
+   * Converts a filled DOCX buffer to a PDF buffer using Microsoft Word COM automation or LibreOffice
    */
   async convertDocxToPdf(docxBuffer: Buffer): Promise<Buffer> {
     const tmpDir = os.tmpdir();
@@ -232,8 +232,12 @@ export class TemplateService {
     try {
       fs.writeFileSync(tempDocxPath, docxBuffer);
 
-      // Execute PowerShell script calling Word.Application COM object
-      const psScript = `
+      let converted = false;
+
+      // 1. Try Windows Word COM automation if on win32
+      if (process.platform === 'win32') {
+        try {
+          const psScript = `
 $word = New-Object -ComObject Word.Application
 $word.Visible = $false
 try {
@@ -248,28 +252,75 @@ try {
 }
 `;
 
-      await new Promise<void>((resolve, reject) => {
-        const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
-          windowsHide: true,
-        });
+          await new Promise<void>((resolve, reject) => {
+            const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psScript], {
+              windowsHide: true,
+            });
 
-        let stderr = '';
-        child.stderr?.on('data', (data) => {
-          stderr += data.toString();
-        });
+            let stderr = '';
+            child.stderr?.on('data', (data) => {
+              stderr += data.toString();
+            });
 
-        child.on('close', (code) => {
-          if (code === 0 && fs.existsSync(tempPdfPath)) {
-            resolve();
-          } else {
-            reject(new Error(`PDF conversion failed with code ${code}: ${stderr}`));
+            child.on('close', (code) => {
+              if (code === 0 && fs.existsSync(tempPdfPath)) {
+                resolve();
+              } else {
+                reject(new Error(`PowerShell Word COM error code ${code}: ${stderr}`));
+              }
+            });
+
+            child.on('error', (err) => {
+              reject(err);
+            });
+          });
+
+          if (fs.existsSync(tempPdfPath)) {
+            converted = true;
           }
-        });
+        } catch {
+          // Word COM failed or not installed, fallback to LibreOffice
+        }
+      }
 
-        child.on('error', (err) => {
-          reject(err);
-        });
-      });
+      // 2. Try headless LibreOffice / soffice fallback
+      if (!converted) {
+        const libreCommands = ['soffice', 'libreoffice'];
+        for (const cmd of libreCommands) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const child = spawn(cmd, ['--headless', '--convert-to', 'pdf', '--outdir', tmpDir, tempDocxPath], {
+                windowsHide: true,
+              });
+
+              child.on('close', (code) => {
+                if (code === 0 && fs.existsSync(tempPdfPath)) {
+                  resolve();
+                } else {
+                  reject(new Error(`${cmd} exited with code ${code}`));
+                }
+              });
+
+              child.on('error', (err) => {
+                reject(err);
+              });
+            });
+
+            if (fs.existsSync(tempPdfPath)) {
+              converted = true;
+              break;
+            }
+          } catch {
+            // Next command attempt
+          }
+        }
+      }
+
+      if (!converted || !fs.existsSync(tempPdfPath)) {
+        throw new Error(
+          'ระบบแปลงไฟล์ PDF ไม่พร้อมใช้งานในสภาพแวดล้อมนี้ (จำเป็นต้องมี Microsoft Word หรือ LibreOffice ติดตั้งบนเซิร์ฟเวอร์) กรุณาดาวน์โหลดเป็นไฟล์เอกสาร Word (.docx) แทน'
+        );
+      }
 
       const pdfBuffer = fs.readFileSync(tempPdfPath);
       return pdfBuffer;
