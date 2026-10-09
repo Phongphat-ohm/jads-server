@@ -4,8 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "prisma generate && prisma migrate deploy",
-    "start": "prisma generate && prisma migrate deploy && bun run index.ts",
+    "build": "prisma generate",
+    "start": "prisma migrate deploy && bun run index.ts",
     "dev": "bun --watch index.ts",
     "test": "bun run test_server_systems.ts",
     "prisma:generate": "prisma generate",
@@ -17,7 +17,7 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
     "@types/pg": "^8.23.1",
-    "@types/swagger-ui-express": "^4.1.8",
+    "@types/swagger-ui-express": "^4.1.0",
     "prisma": "^7.10.0"
   },
   "peerDependencies": {
