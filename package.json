@@ -4,9 +4,12 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "bun run index.ts",
+    "build": "prisma generate && prisma migrate deploy",
+    "start": "prisma generate && prisma migrate deploy && bun run index.ts",
     "dev": "bun --watch index.ts",
-    "test": "bun run test_server_systems.ts"
+    "test": "bun run test_server_systems.ts",
+    "prisma:generate": "prisma generate",
+    "prisma:deploy": "prisma migrate deploy"
   },
   "devDependencies": {
     "@types/bun": "latest",
