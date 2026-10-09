@@ -64,6 +64,24 @@ export class TemplateService {
         }
       }
 
+      // Ensure that signatories loop paragraph has zero after spacing and single line spacing
+      // so signature lines are directly adjacent (บรรทัดติดกัน) with no blank line
+      const posIdx = xml.indexOf('{{position}}');
+      if (posIdx !== -1) {
+        const pStart = xml.lastIndexOf('<w:p ', posIdx);
+        const pPrStart = xml.indexOf('<w:pPr>', pStart);
+        const pPrEnd = xml.indexOf('</w:pPr>', pPrStart);
+        if (pPrStart !== -1 && pPrEnd !== -1 && pPrStart < posIdx) {
+          let pPr = xml.substring(pPrStart, pPrEnd + 8);
+          if (pPr.includes('<w:spacing')) {
+            pPr = pPr.replace(/<w:spacing[^>]*\/>/g, '<w:spacing w:before="0pt" w:after="0pt" w:line="240" w:lineRule="auto"/>');
+          } else {
+            pPr = pPr.replace('<w:pPr>', '<w:pPr><w:spacing w:before="0pt" w:after="0pt" w:line="240" w:lineRule="auto"/>');
+          }
+          xml = xml.substring(0, pPrStart) + pPr + xml.substring(pPrEnd + 8);
+        }
+      }
+
       zip.file('word/document.xml', xml);
     }
 
