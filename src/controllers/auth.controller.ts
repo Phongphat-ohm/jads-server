@@ -35,7 +35,7 @@ export const registerSchema = z
 
 export const loginSchema = z
   .object({
-    username: z.string().trim().min(1, 'Username is required').max(50),
+    username: z.string().trim().min(1, 'Username or Email is required').max(100),
     password: z.string().min(1, 'Password is required').max(128),
   })
   .strict();
@@ -89,6 +89,13 @@ export const resetPasswordWithOtpSchema = z
 
 export const updateProfileSchema = z
   .object({
+    username: z
+      .string()
+      .trim()
+      .min(3, 'ชื่อผู้ใช้ต้องมีความยาวอย่างน้อย 3 ตัวอักษร')
+      .max(50, 'ชื่อผู้ใช้ต้องมีความยาวไม่เกิน 50 ตัวอักษร')
+      .regex(/^[a-zA-Z0-9_.-]+$/, 'ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรภาษาอังกฤษ, ตัวเลข, จุด, ขีดกลาง หรือขีดล่างเท่านั้น')
+      .optional(),
     fullName: z.string().trim().max(100, 'ชื่อ-นามสกุลยาวเกินไป').optional(),
     courtName: z.string().trim().max(100, 'ชื่อศาลยาวเกินไป').optional(),
   })
@@ -315,11 +322,12 @@ export class AuthController {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
 
-      const { fullName, courtName } = req.body;
+      const { username, fullName, courtName } = req.body;
       const updatedUser = await authService.updateProfile(
         req.user.id,
         fullName,
         courtName,
+        username,
         req.ip || req.socket.remoteAddress,
         req.headers['user-agent']
       );

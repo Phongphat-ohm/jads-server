@@ -120,18 +120,24 @@ export class AuthService {
   }
 
   /**
-   * Authenticates user and issues JWT token
+   * Authenticates user with username or email and issues JWT token
    */
   async login(data: LoginDTO) {
-    const user = await prisma.user.findUnique({
-      where: { username: data.username },
+    const identifier = data.username.trim();
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: identifier },
+          { email: identifier.toLowerCase() },
+        ],
+      },
     });
 
     if (!user) {
       await auditLogService.createLog({
         action: 'USER_LOGIN_FAILED',
         resource: 'auth',
-        details: { username: data.username, reason: 'User not found' },
+        details: { identifier: data.username, reason: 'User not found' },
         ipAddress: data.ipAddress,
         userAgent: data.userAgent,
         status: 'FAILED',
@@ -538,12 +544,30 @@ export class AuthService {
   }
 
   /**
-   * Updates profile information (e.g. fullName, courtName)
+   * Updates profile information (e.g. fullName, courtName, username)
    */
-  async updateProfile(userId: string, fullName?: string, courtName?: string, ipAddress?: string, userAgent?: string) {
+  async updateProfile(
+    userId: string,
+    fullName?: string,
+    courtName?: string,
+    username?: string,
+    ipAddress?: string,
+    userAgent?: string
+  ) {
     const dataToUpdate: any = {};
     if (fullName !== undefined) dataToUpdate.fullName = fullName;
     if (courtName !== undefined) dataToUpdate.courtName = courtName ? courtName.trim() : null;
+
+    if (username !== undefined) {
+      const trimmedUsername = username.trim();
+      const existing = await prisma.user.findUnique({
+        where: { username: trimmedUsername },
+      });
+      if (existing && existing.id !== userId) {
+        throw new Error('ชื่อผู้ใช้งานนี้มีผู้ใช้งานอื่นใช้แล้ว กรุณาเลือกชื่อผู้ใช้งานอื่น');
+      }
+      dataToUpdate.username = trimmedUsername;
+    }
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -565,7 +589,7 @@ export class AuthService {
       userId,
       action: 'USER_PROFILE_UPDATE',
       resource: 'auth',
-      details: { fullName, courtName },
+      details: { username, fullName, courtName },
       ipAddress,
       userAgent,
       status: 'SUCCESS',
