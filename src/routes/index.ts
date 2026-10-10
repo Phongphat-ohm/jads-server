@@ -6,6 +6,7 @@ import templateRoutes from './template.routes';
 import judgePairRoutes from './judgePair.routes';
 import paragraphTemplateRoutes from './paragraphTemplate.routes';
 import cloudFileRoutes from './cloudFile.routes';
+import downloadRoutes from './download.routes';
 
 const router = Router();
 
@@ -15,6 +16,7 @@ router.use('/recent-files', recentFileRoutes);
 router.use('/judge-pairs', judgePairRoutes);
 router.use('/paragraph-templates', paragraphTemplateRoutes);
 router.use('/cloud-files', cloudFileRoutes);
+router.use('/downloads', downloadRoutes);
 router.use('/', templateRoutes);
 
 export default router;

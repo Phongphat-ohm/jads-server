@@ -356,6 +356,35 @@ async function runTests() {
       throw new Error(`Failed to download cloud file: Status ${downloadCloudRes.status}`);
     }
 
+    // Test 16: Versioned Downloads System Verification
+    console.log('\n1️⃣6️⃣ Testing Versioned Downloads API (GET /api/downloads)...');
+    const dlInfoRes = await fetch(`${BASE_URL}/api/downloads/info`);
+    if (dlInfoRes.status !== 200) {
+      throw new Error(`Downloads info failed with status: ${dlInfoRes.status}`);
+    }
+    const dlInfoData = await dlInfoRes.json();
+    if (!dlInfoData.success || dlInfoData.data.latestVersion !== '1.0.0') {
+      throw new Error(`Downloads info mismatch: ${JSON.stringify(dlInfoData)}`);
+    }
+    console.log(`   ✅ Latest version detected: ${dlInfoData.data.latestVersion}`);
+    console.log(`   📦 Total releases found: ${dlInfoData.data.versions.length}`);
+
+    // Test downloading latest setup
+    const dlLatestRes = await fetch(`${BASE_URL}/api/downloads/latest`);
+    if (dlLatestRes.status !== 200) {
+      throw new Error(`Download latest failed with status: ${dlLatestRes.status}`);
+    }
+    const dlLatestBuf = await dlLatestRes.arrayBuffer();
+    console.log(`   ✅ Latest installer downloaded successfully (${dlLatestBuf.byteLength} bytes)`);
+
+    // Test security: path traversal attempt
+    const dlTraversalRes = await fetch(`${BASE_URL}/api/downloads/..%2f/package.json`);
+    if (dlTraversalRes.status === 404 || dlTraversalRes.status === 400) {
+      console.log('   ✅ Path traversal blocked on downloads endpoint (404/400)');
+    } else {
+      throw new Error(`Security failure: Traversal not blocked! Status: ${dlTraversalRes.status}`);
+    }
+
     // Clean up
     console.log('\n🧹 Cleaning up test data...');
     await prisma.cloudFile.deleteMany({ where: { userId } });
