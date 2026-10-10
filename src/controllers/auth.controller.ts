@@ -208,6 +208,30 @@ export class AuthController {
     }
   }
 
+  async cancelOnboarding(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      await authService.cancelOnboarding(
+        req.user.id,
+        req.ip || req.socket.remoteAddress,
+        req.headers['user-agent']
+      );
+
+      res.json({
+        success: true,
+        message: 'ยกเลิกการลงทะเบียนและลบข้อมูลสมาชิกเรียบร้อยแล้ว',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Cancel onboarding failed',
+      });
+    }
+  }
+
   async requestBindEmail(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {

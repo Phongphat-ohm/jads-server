@@ -9,8 +9,13 @@ export class AuditLogController {
       const page = Math.max(1, isNaN(parsedPage) ? 1 : parsedPage);
       const limit = Math.min(100, Math.max(1, isNaN(parsedLimit) ? 20 : parsedLimit));
 
-      const action = req.query.action ? String(req.query.action).substring(0, 50) : undefined;
-      const status = req.query.status ? String(req.query.status).substring(0, 20) : undefined;
+      const action = req.query.action && req.query.action !== 'ALL' ? String(req.query.action).substring(0, 50) : undefined;
+      const status = req.query.status && req.query.status !== 'ALL' ? String(req.query.status).substring(0, 20) : undefined;
+      const search = req.query.search ? String(req.query.search).substring(0, 100) : undefined;
+      const sortBy = req.query.sortBy ? (String(req.query.sortBy) as any) : undefined;
+      const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : 'desc';
+      const startDate = req.query.startDate ? String(req.query.startDate) : undefined;
+      const endDate = req.query.endDate ? String(req.query.endDate) : undefined;
 
       // If user is not admin, they can ONLY view their own audit logs
       let userId: string | undefined = req.user?.id;
@@ -26,6 +31,11 @@ export class AuditLogController {
         userId,
         action,
         status,
+        search,
+        sortBy,
+        sortOrder,
+        startDate,
+        endDate,
       });
 
       res.json({

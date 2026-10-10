@@ -14,6 +14,11 @@ export interface ListAuditLogsParams {
   userId?: string;
   action?: string;
   status?: string;
+  search?: string;
+  sortBy?: 'createdAt' | 'action' | 'status' | 'ipAddress';
+  sortOrder?: 'asc' | 'desc';
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
 }
@@ -43,7 +48,7 @@ export class AuditLogService {
   }
 
   /**
-   * Retrieves audit logs with optional filters and pagination
+   * Retrieves audit logs with optional filters, search, sorting and pagination
    */
   async listLogs(params: ListAuditLogsParams = {}) {
     const page = Math.max(1, params.page || 1);
@@ -52,8 +57,37 @@ export class AuditLogService {
 
     const where: any = {};
     if (params.userId) where.userId = params.userId;
-    if (params.action) where.action = params.action;
-    if (params.status) where.status = params.status;
+    if (params.action && params.action !== 'ALL') {
+      where.action = params.action;
+    }
+    if (params.status && params.status !== 'ALL') {
+      where.status = params.status;
+    }
+
+    if (params.startDate || params.endDate) {
+      where.createdAt = {};
+      if (params.startDate) {
+        where.createdAt.gte = new Date(params.startDate);
+      }
+      if (params.endDate) {
+        const end = new Date(params.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    if (params.search && params.search.trim()) {
+      const q = params.search.trim();
+      where.OR = [
+        { action: { contains: q, mode: 'insensitive' } },
+        { ipAddress: { contains: q, mode: 'insensitive' } },
+        { resource: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const validSortFields = ['createdAt', 'action', 'status', 'ipAddress'];
+    const sortBy = validSortFields.includes(params.sortBy || '') ? params.sortBy! : 'createdAt';
+    const sortOrder = params.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const [total, logs] = await Promise.all([
       prisma.auditLog.count({ where }),
@@ -61,7 +95,7 @@ export class AuditLogService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [sortBy]: sortOrder },
         include: {
           user: {
             select: {

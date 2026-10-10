@@ -43,9 +43,14 @@ export class TemplateService {
     const docXmlFile = zip.file('word/document.xml');
     if (docXmlFile) {
       let xml = docXmlFile.asText();
+
+      // 1. Remove empty paragraphs preceding signatories loop (prevent blank lines between judges and signatories)
+      xml = xml.replace(/<w:p\b[^>]*><w:pPr>(?:(?!<\/w:pPr>).)*<\/w:pPr><\/w:p>(?=\s*(?:<w:[^>]+>\s*)*<w:p\b[^>]*>(?:(?!<\/w:p>).)*?\{\{?#signatories\}\}?)/s, '');
+
+      // 2. Normalize tags and strip any trailing spaces inside tags so docxtemplater treats them cleanly as control tags
       xml = xml
-        .replace(/\{#signatories\}/g, '{{#signatories}}')
-        .replace(/\{\/signatories\}/g, '{{/signatories}}')
+        .replace(/\{#signatories\}\s*/g, '{{#signatories}}')
+        .replace(/\s*\{\/signatories\}/g, '{{/signatories}}')
         .replace(/\{position\}/g, '{{position}}');
 
       // Ensure that paragraph containing {{.}} has the exact first-line indent (w:firstLine="72pt") as the paragraph above
@@ -333,6 +338,66 @@ try {
         if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
       } catch {}
     }
+  }
+
+  private isPdfAvailableCache: boolean | null = null;
+
+  /**
+   * Checks whether PDF export is available (via Microsoft Word COM on Windows or LibreOffice on Linux/Mac/Windows)
+   */
+  async checkPdfCapability(): Promise<boolean> {
+    if (this.isPdfAvailableCache !== null) {
+      return this.isPdfAvailableCache;
+    }
+
+    if (process.platform === 'win32') {
+      try {
+        const checkWordScript = `
+try {
+  $word = New-Object -ComObject Word.Application
+  $word.Quit([ref]0)
+  [System.Runtime.InteropServices.Marshal]::ReleaseComObject($word) | Out-Null
+  [System.GC]::Collect()
+  [System.GC]::WaitForPendingFinalizers()
+  exit 0
+} catch {
+  exit 1
+}
+`;
+        const code = await new Promise<number>((resolve) => {
+          const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', checkWordScript], {
+            windowsHide: true,
+          });
+          child.on('close', (c) => resolve(c ?? 1));
+          child.on('error', () => resolve(1));
+        });
+
+        if (code === 0) {
+          this.isPdfAvailableCache = true;
+          return true;
+        }
+      } catch {
+        // Fallback to checking libreoffice
+      }
+    }
+
+    // Fallback: Check soffice / libreoffice command
+    for (const cmd of ['soffice', 'libreoffice']) {
+      try {
+        const code = await new Promise<number>((resolve) => {
+          const child = spawn(cmd, ['--version'], { windowsHide: true });
+          child.on('close', (c) => resolve(c ?? 1));
+          child.on('error', () => resolve(1));
+        });
+        if (code === 0) {
+          this.isPdfAvailableCache = true;
+          return true;
+        }
+      } catch {}
+    }
+
+    this.isPdfAvailableCache = false;
+    return false;
   }
 }
 

@@ -364,6 +364,46 @@ export class AuthService {
   }
 
   /**
+   * Cancels onboarding and deletes the user profile and linked OAuth accounts from database
+   */
+  async cancelOnboarding(userId: string, ipAddress?: string, userAgent?: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { accounts: true },
+    });
+
+    if (!user) {
+      throw new Error('ไม่พบข้อมูลผู้ใช้งาน');
+    }
+
+    if (user.isProfileComplete) {
+      throw new Error('ไม่สามารถยกเลิกได้ เนื่องจากบัญชีนี้ลงทะเบียนเสร็จสมบูรณ์แล้ว');
+    }
+
+    // Log the cancellation before deletion
+    await auditLogService.createLog({
+      userId: user.id,
+      action: 'USER_ONBOARDING_CANCELLED',
+      resource: 'auth',
+      details: {
+        email: user.email,
+        username: user.username,
+        providers: user.accounts.map((a) => a.provider),
+      },
+      ipAddress,
+      userAgent,
+      status: 'SUCCESS',
+    });
+
+    // Delete user from database (cascades to accounts, recent_files, etc.)
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    return { success: true };
+  }
+
+  /**
    * Request OTP to bind or change email
    */
   async requestBindEmail(userId: string, newEmail: string, ipAddress?: string, userAgent?: string) {

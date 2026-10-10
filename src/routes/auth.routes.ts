@@ -24,6 +24,7 @@ router.post('/login', validateBody(loginSchema), (req, res, next) => authControl
 // OAuth NextAuth Sync & Onboarding
 router.post('/oauth/sync', validateBody(oauthSyncSchema), (req, res, next) => authController.oauthSync(req, res, next));
 router.post('/complete-profile', authenticateJWT, validateBody(completeProfileSchema), (req, res, next) => authController.completeProfile(req, res, next));
+router.delete('/onboarding/cancel', authenticateJWT, (req, res, next) => authController.cancelOnboarding(req, res, next));
 
 // Email Binding & Verification via OTP
 router.post('/email/request-bind', authenticateJWT, validateBody(requestBindEmailSchema), (req, res, next) => authController.requestBindEmail(req, res, next));

@@ -45,6 +45,19 @@ export class TemplateController {
     }
   }
 
+  async getCapabilities(req: Request, res: Response) {
+    try {
+      const canExportPdf = await templateService.checkPdfCapability();
+      res.json({
+        success: true,
+        canExportPdf,
+        availableFormats: canExportPdf ? ['docx', 'pdf'] : ['docx'],
+      });
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   async generate(req: Request, res: Response) {
     try {
       const body = req.body || {};
