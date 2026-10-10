@@ -4,6 +4,9 @@ export interface AuthUser {
   id: string;
   username: string;
   role: 'USER' | 'ADMIN';
+  email?: string | null;
+  isEmailVerified?: boolean;
+  isProfileComplete?: boolean;
   fullName?: string | null;
   courtName?: string | null;
 }

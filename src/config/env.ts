@@ -20,4 +20,7 @@ export const env = {
   S3_SECRET_ACCESS_KEY: process.env.S3_SECRET_ACCESS_KEY || '',
   S3_USE_SSL: process.env.S3_USE_SSL !== 'false',
   LOCAL_STORAGE_DIR: path.resolve(process.cwd(), 'storage'),
+  // Resend Email
+  RESEND_API_KEY: process.env.RESEND_API_KEY || '',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'JADS System <onboarding@resend.dev>',
 };

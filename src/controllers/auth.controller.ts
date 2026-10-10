@@ -14,6 +14,12 @@ export const registerSchema = z
       .string()
       .min(8, 'Password must be at least 8 characters')
       .max(128, 'Password cannot exceed 128 characters'),
+    email: z
+      .string()
+      .trim()
+      .email('รูปแบบอีเมลไม่ถูกต้อง')
+      .optional()
+      .or(z.literal('')),
     fullName: z
       .string()
       .trim()
@@ -34,6 +40,53 @@ export const loginSchema = z
   })
   .strict();
 
+export const oauthSyncSchema = z
+  .object({
+    provider: z.string().min(1),
+    providerAccountId: z.string().min(1),
+    email: z.string().email().optional().or(z.literal('')),
+    fullName: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    accessToken: z.string().optional(),
+    refreshToken: z.string().optional(),
+  })
+  .strict();
+
+export const completeProfileSchema = z
+  .object({
+    fullName: z.string().trim().min(2, 'กรุณากรอกชื่อ-นามสกุล'),
+    courtName: z.string().trim().min(2, 'กรุณาระบุชื่อศาลหรือสังกัด'),
+    password: z.string().min(8, 'รหัสผ่านต้องมีความยาวอย่างน้อย 8 ตัวอักษร'),
+  })
+  .strict();
+
+export const requestBindEmailSchema = z
+  .object({
+    newEmail: z.string().trim().email('รูปแบบอีเมลไม่ถูกต้อง'),
+  })
+  .strict();
+
+export const confirmBindEmailSchema = z
+  .object({
+    newEmail: z.string().trim().email('รูปแบบอีเมลไม่ถูกต้อง'),
+    otp: z.string().trim().length(6, 'รหัส OTP ต้องมี 6 หลัก'),
+  })
+  .strict();
+
+export const forgotPasswordSchema = z
+  .object({
+    email: z.string().trim().email('รูปแบบอีเมลไม่ถูกต้อง'),
+  })
+  .strict();
+
+export const resetPasswordWithOtpSchema = z
+  .object({
+    email: z.string().trim().email('รูปแบบอีเมลไม่ถูกต้อง'),
+    otp: z.string().trim().length(6, 'รหัส OTP ต้องมี 6 หลัก'),
+    newPassword: z.string().min(8, 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 8 ตัวอักษร').max(128),
+  })
+  .strict();
+
 export const updateProfileSchema = z
   .object({
     fullName: z.string().trim().max(100, 'ชื่อ-นามสกุลยาวเกินไป').optional(),
@@ -51,10 +104,11 @@ export const changePasswordSchema = z
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const { username, password, fullName, courtName } = req.body;
+      const { username, password, email, fullName, courtName } = req.body;
       const result = await authService.register({
         username,
         password,
+        email: email || undefined,
         fullName,
         courtName,
         ipAddress: req.ip || req.socket.remoteAddress,
@@ -93,6 +147,145 @@ export class AuthController {
       res.status(401).json({
         success: false,
         message: error.message || 'Login failed',
+      });
+    }
+  }
+
+  async oauthSync(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await authService.oauthSync({
+        ...req.body,
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+
+      res.json({
+        success: true,
+        message: 'OAuth synchronization successful',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'OAuth synchronization failed',
+      });
+    }
+  }
+
+  async completeProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const { fullName, courtName, password } = req.body;
+      const result = await authService.completeProfile({
+        userId: req.user.id,
+        fullName,
+        courtName,
+        password,
+        ipAddress: req.ip || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'],
+      });
+
+      res.json({
+        success: true,
+        message: 'Profile completed successfully',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Complete profile failed',
+      });
+    }
+  }
+
+  async requestBindEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const { newEmail } = req.body;
+      const result = await authService.requestBindEmail(
+        req.user.id,
+        newEmail,
+        req.ip || req.socket.remoteAddress,
+        req.headers['user-agent']
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Request OTP failed',
+      });
+    }
+  }
+
+  async confirmBindEmail(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ success: false, message: 'Unauthorized' });
+      }
+
+      const { newEmail, otp } = req.body;
+      const result = await authService.confirmBindEmail(
+        req.user.id,
+        newEmail,
+        otp,
+        req.ip || req.socket.remoteAddress,
+        req.headers['user-agent']
+      );
+
+      res.json({
+        success: true,
+        message: 'ยืนยันและบันทึกอีเมลเรียบร้อยแล้ว',
+        data: result,
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Confirm OTP failed',
+      });
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email } = req.body;
+      const result = await authService.forgotPassword(
+        email,
+        req.ip || req.socket.remoteAddress,
+        req.headers['user-agent']
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Forgot password request failed',
+      });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, otp, newPassword } = req.body;
+      const result = await authService.resetPasswordWithOtp(
+        email,
+        otp,
+        newPassword,
+        req.ip || req.socket.remoteAddress,
+        req.headers['user-agent']
+      );
+
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'Reset password failed',
       });
     }
   }

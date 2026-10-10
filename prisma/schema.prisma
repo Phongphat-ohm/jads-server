@@ -12,20 +12,25 @@ enum Role {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  username     String        @unique
-  passwordHash String
-  fullName     String?
-  courtName    String?
-  role         Role          @default(USER)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                String        @id @default(uuid())
+  username          String        @unique
+  email             String?       @unique
+  isEmailVerified   Boolean       @default(true)
+  passwordHash      String?
+  fullName          String?
+  courtName         String?
+  isProfileComplete Boolean       @default(true)
+  role              Role          @default(USER)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   auditLogs          AuditLog[]
   recentFiles        RecentFile[]
   judgePairs         JudgePair[]
   paragraphTemplates ParagraphTemplate[]
   cloudFiles         CloudFile[]
+  accounts           Account[]
+  emailOtps          EmailOtp[]
 
   @@map("users")
 }
@@ -105,4 +110,44 @@ model CloudFile {
 
   @@index([userId])
   @@map("cloud_files")
+}
+
+model Account {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String   @default("oauth")
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  otpHash   String
+  purpose   String   // RESET_PASSWORD | CHANGE_EMAIL
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("email_otps")
 }
