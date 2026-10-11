@@ -7,6 +7,8 @@ import judgePairRoutes from './judgePair.routes';
 import paragraphTemplateRoutes from './paragraphTemplate.routes';
 import cloudFileRoutes from './cloudFile.routes';
 import downloadRoutes from './download.routes';
+import feedbackRoutes from './feedback.routes';
+import adminRoutes from './admin.routes';
 
 const router = Router();
 
@@ -17,6 +19,8 @@ router.use('/judge-pairs', judgePairRoutes);
 router.use('/paragraph-templates', paragraphTemplateRoutes);
 router.use('/cloud-files', cloudFileRoutes);
 router.use('/downloads', downloadRoutes);
+router.use('/feedbacks', feedbackRoutes);
+router.use('/admin', adminRoutes);
 
 // Endpoint to reliably open URL in system default browser on the local machine
 router.post('/open-browser', (req, res) => {

@@ -328,9 +328,25 @@ export class AuthController {
       }
 
       const profile = await authService.getProfile(req.user.id);
+
+      // Always issue an up-to-date JWT token with the current DB role
+      const token = authService.generateToken({
+        id: profile.id,
+        username: profile.username,
+        role: profile.role,
+        email: profile.email,
+        isEmailVerified: profile.isEmailVerified,
+        isProfileComplete: profile.isProfileComplete,
+        fullName: profile.fullName,
+        courtName: profile.courtName,
+      });
+
       res.json({
         success: true,
-        data: profile,
+        data: {
+          ...profile,
+          token,
+        },
       });
     } catch (error: any) {
       res.status(500).json({

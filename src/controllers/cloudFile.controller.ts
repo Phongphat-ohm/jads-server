@@ -32,9 +32,17 @@ export const uploadCloudFile = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'อนุญาตเฉพาะไฟล์ Excel (.xlsx หรือ .xls) เท่านั้น' });
     }
 
+    // Fix Multer UTF-8 filename encoding issue (Latin-1 mojibake)
+    let fileName = file.originalname;
+    try {
+      fileName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    } catch {
+      fileName = file.originalname;
+    }
+
     const { s3Key, fileSize } = await s3Service.uploadFile(
       userId,
-      file.originalname,
+      fileName,
       file.buffer,
       file.mimetype || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
@@ -42,7 +50,7 @@ export const uploadCloudFile = async (req: Request, res: Response) => {
     const cloudFile = await prisma.cloudFile.create({
       data: {
         userId,
-        fileName: file.originalname,
+        fileName,
         s3Key,
         fileSize,
         mimeType: file.mimetype,
@@ -73,9 +81,13 @@ export const downloadCloudFile = async (req: Request, res: Response) => {
 
     const buffer = await s3Service.getFileBuffer(userId, cloudFile.s3Key);
 
+    const safeAsciiName = cloudFile.fileName.replace(/[^\x20-\x7E]/g, '_');
     const encodedFileName = encodeURIComponent(cloudFile.fileName);
     res.setHeader('Content-Type', cloudFile.mimeType || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedFileName}`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${safeAsciiName}"; filename*=UTF-8''${encodedFileName}`
+    );
     res.setHeader('Content-Length', buffer.length);
 
     res.send(buffer);

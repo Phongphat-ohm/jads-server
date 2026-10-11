@@ -31,6 +31,7 @@ model User {
   cloudFiles         CloudFile[]
   accounts           Account[]
   emailOtps          EmailOtp[]
+  feedbacks          Feedback[]
 
   @@map("users")
 }
@@ -151,3 +152,45 @@ model EmailOtp {
   @@index([expiresAt])
   @@map("email_otps")
 }
+
+enum FeedbackType {
+  BUG
+  FEATURE_REQUEST
+  GENERAL_FEEDBACK
+  TEMPLATE_ISSUE
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
+model Feedback {
+  id          String         @id @default(uuid())
+  userId      String?
+  user        User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  type        FeedbackType   @default(GENERAL_FEEDBACK)
+  rating      Int?           // 1 ถึง 5 ดาว
+  title       String
+  description String         @db.Text
+  screenshot  String?
+  attachmentUrl  String?        // URL หรือ path ของไฟล์แนบ (รูปภาพ/เอกสาร)
+  attachmentName String?        // ชื่อไฟล์เดิมที่แนบมา
+  pageUrl     String?
+  appVersion  String?
+  contactInfo String?        // ช่องทางติดต่อกลับ เช่น เบอร์โทร, อีเมล, Line ID (Optional)
+  status      FeedbackStatus @default(PENDING)
+  adminNote   String?        @db.Text
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("feedbacks")
+}
+

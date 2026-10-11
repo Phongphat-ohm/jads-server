@@ -129,6 +129,84 @@ export class S3Service {
       }
     }
   }
+
+  /**
+   * Uploads feedback attachment (screenshots, logs, reports)
+   */
+  async uploadFeedbackAttachment(
+    fileName: string,
+    buffer: Buffer,
+    mimeType: string,
+    userId?: string | null
+  ): Promise<{ s3Key: string; fileSize: number }> {
+    const timestamp = Date.now();
+    const cleanFileName = path.basename(fileName).replace(/[^a-zA-Z0-9._\-\u0E00-\u0E7F]/g, '_');
+    const folder = userId ? `feedbacks/${userId}` : 'feedbacks/public';
+    const s3Key = `${folder}/${timestamp}_${cleanFileName}`;
+
+    if (this.isS3Configured && this.s3Client) {
+      await this.s3Client.send(
+        new PutObjectCommand({
+          Bucket: env.S3_BUCKET,
+          Key: s3Key,
+          Body: buffer,
+          ContentType: mimeType,
+          Metadata: {
+            userId: userId || 'anonymous',
+            originalName: encodeURIComponent(fileName),
+          },
+        })
+      );
+    } else {
+      const fullLocalPath = path.join(this.localDir, s3Key);
+      const parentDir = path.dirname(fullLocalPath);
+      if (!fs.existsSync(parentDir)) {
+        fs.mkdirSync(parentDir, { recursive: true });
+      }
+      fs.writeFileSync(fullLocalPath, buffer);
+    }
+
+    return {
+      s3Key,
+      fileSize: buffer.length,
+    };
+  }
+
+  /**
+   * Retrieves feedback attachment buffer
+   */
+  async getFeedbackAttachmentBuffer(s3Key: string): Promise<Buffer> {
+    // Basic sanitization
+    if (!s3Key.startsWith('feedbacks/')) {
+      throw new Error('Unauthorized access to feedback file storage key');
+    }
+
+    if (this.isS3Configured && this.s3Client) {
+      const response = await this.s3Client.send(
+        new GetObjectCommand({
+          Bucket: env.S3_BUCKET,
+          Key: s3Key,
+        })
+      );
+
+      if (!response.Body) {
+        throw new Error('File body is empty');
+      }
+
+      const stream = response.Body as Readable;
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.from(chunk));
+      }
+      return Buffer.concat(chunks);
+    } else {
+      const fullLocalPath = path.join(this.localDir, s3Key);
+      if (!fs.existsSync(fullLocalPath)) {
+        throw new Error('File not found in storage');
+      }
+      return fs.readFileSync(fullLocalPath);
+    }
+  }
 }
 
 export const s3Service = new S3Service();

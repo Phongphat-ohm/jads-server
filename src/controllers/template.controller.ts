@@ -107,10 +107,11 @@ export class TemplateController {
         status: 'SUCCESS',
       });
 
+      const safeAsciiName = `report_${cleanCaseNo || 'doc'}.${extension}`.replace(/[^\x20-\x7E]/g, '_');
       res.setHeader('Content-Type', contentType);
       res.setHeader(
         'Content-Disposition',
-        `attachment; filename="${encodedFilename}"; filename*=UTF-8''${encodedFilename}`
+        `attachment; filename="${safeAsciiName}"; filename*=UTF-8''${encodedFilename}`
       );
       res.send(outputBuffer);
     } catch (error: any) {
