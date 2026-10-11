@@ -699,6 +699,80 @@ export class AuthService {
       status: 'SUCCESS',
     });
   }
+
+  // ---------------------------------------------------------
+  // Desktop Session Pairing for External Browser Login Flow
+  // ---------------------------------------------------------
+  private static desktopSessions = new Map<
+    string,
+    {
+      status: 'PENDING' | 'AUTHORIZED';
+      createdAt: number;
+      token?: string;
+      user?: any;
+    }
+  >();
+
+  createDesktopSession() {
+    // Clean up expired sessions (> 10 minutes)
+    const now = Date.now();
+    for (const [id, sess] of AuthService.desktopSessions.entries()) {
+      if (now - sess.createdAt > 10 * 60 * 1000) {
+        AuthService.desktopSessions.delete(id);
+      }
+    }
+
+    const sessionId = (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : Math.random().toString(36).substring(2) + Date.now().toString(36));
+    AuthService.desktopSessions.set(sessionId, {
+      status: 'PENDING',
+      createdAt: now,
+    });
+
+    return {
+      sessionId,
+      expiresIn: 600, // 10 minutes
+    };
+  }
+
+  checkDesktopSession(sessionId: string) {
+    const sess = AuthService.desktopSessions.get(sessionId);
+    if (!sess) {
+      return { status: 'EXPIRED' };
+    }
+
+    if (Date.now() - sess.createdAt > 10 * 60 * 1000) {
+      AuthService.desktopSessions.delete(sessionId);
+      return { status: 'EXPIRED' };
+    }
+
+    if (sess.status === 'AUTHORIZED') {
+      return {
+        status: 'AUTHORIZED',
+        token: sess.token,
+        user: sess.user,
+      };
+    }
+
+    return { status: 'PENDING' };
+  }
+
+  authorizeDesktopSession(sessionId: string, token: string, user: any) {
+    const sess = AuthService.desktopSessions.get(sessionId);
+    if (!sess) {
+      throw new Error('เซสชันหมดอายุหรือไม่ถูกต้อง');
+    }
+
+    if (Date.now() - sess.createdAt > 10 * 60 * 1000) {
+      AuthService.desktopSessions.delete(sessionId);
+      throw new Error('เซสชันหมดอายุแล้ว กรุณาลองใหม่อีกครั้ง');
+    }
+
+    sess.status = 'AUTHORIZED';
+    sess.token = token;
+    sess.user = user;
+
+    return { success: true };
+  }
 }
 
 export const authService = new AuthService();

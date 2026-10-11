@@ -40,4 +40,9 @@ router.put('/profile', authenticateJWT, validateBody(updateProfileSchema), (req,
 router.put('/change-password', authenticateJWT, validateBody(changePasswordSchema), (req, res, next) => authController.changePassword(req, res, next));
 router.post('/logout', optionalJWT, (req, res, next) => authController.logout(req, res, next));
 
+// Desktop External Browser Session Pairing
+router.post('/desktop-session/create', (req, res, next) => authController.createDesktopSession(req, res, next));
+router.get('/desktop-session/check/:sessionId', (req, res, next) => authController.checkDesktopSession(req, res, next));
+router.post('/desktop-session/authorize', (req, res, next) => authController.authorizeDesktopSession(req, res, next));
+
 export default router;

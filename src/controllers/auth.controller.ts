@@ -413,6 +413,58 @@ export class AuthController {
       next(error);
     }
   }
+
+  // ---------------------------------------------------------
+  // Desktop Session Pairing Handlers
+  // ---------------------------------------------------------
+  async createDesktopSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      const data = authService.createDesktopSession();
+      res.status(201).json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async checkDesktopSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { sessionId } = req.params;
+      const data = authService.checkDesktopSession(sessionId);
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error: any) {
+      next(error);
+    }
+  }
+
+  async authorizeDesktopSession(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { sessionId, token, user } = req.body;
+      if (!sessionId || !token || !user) {
+        res.status(400).json({
+          success: false,
+          message: 'ข้อมูลไม่ครบถ้วน (sessionId, token, user)',
+        });
+        return;
+      }
+
+      authService.authorizeDesktopSession(sessionId, token, user);
+      res.json({
+        success: true,
+        message: 'อนุมัติการเข้าสู่ระบบ Desktop เรียบร้อยแล้ว',
+      });
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || 'ไม่สามารถอนุมัติได้',
+      });
+    }
+  }
 }
 
 export const authController = new AuthController();
